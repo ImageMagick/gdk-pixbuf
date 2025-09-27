@@ -1,55 +1,34 @@
 [DYNAMIC_LIBRARY]
 
 [LICENSE]
-gdk-pixbuf\COPYING
-librsvg\COPYING.LIB
+COPYING
 
 [DEFINES]
 GDK_PIXBUF_ENABLE_BACKEND
-RSVG_COMPILATION
 
 [INCLUDES]
+.
 gdk-pixbuf
-gdk-pixbuf\gdk-pixbuf
-librsvg
 
 [INCLUDE_ARTIFACTS]
-librsvg -> librsvg
-gdk-pixbuf\gdk-pixbuf -> gdk-pixbuf
+gdk-pixbuf -> gdk-pixbuf
 
 [EXCLUDES]
-gdk-pixbuf\docs\
-gdk-pixbuf\gdk-pixbuf\fallback-c89.c
-gdk-pixbuf\gdk-pixbuf\io-android-
-gdk-pixbuf\gdk-pixbuf\io-gdip-
-gdk-pixbuf\gdk-pixbuf\io-glycin-
-gdk-pixbuf\gdk-pixbuf\gdk-pixbuf-csource.c
-gdk-pixbuf\gdk-pixbuf\make-inline-pixbuf.c
-gdk-pixbuf\gdk-pixbuf\queryloaders.c
-gdk-pixbuf\gdk-pixbuf\test-gdk-pixbuf.c
-gdk-pixbuf\gdk-pixbuf\pixops\timescale.c
-gdk-pixbuf\tests\
-gdk-pixbuf\thumbnailer\
-librsvg\gdk-pixbuf-loader\test.c
-librsvg\rsvg-convert.c
-librsvg\rsvg-file-util.c
-librsvg\test-display.c
-librsvg\tests\
-librsvg\tools\
+docs\
+gdk-pixbuf\fallback-c89.c
+gdk-pixbuf\io-android-
+gdk-pixbuf\io-gdip-
+gdk-pixbuf\io-glycin-
+gdk-pixbuf\gdk-pixbuf-csource.c
+gdk-pixbuf\make-inline-pixbuf.c
+gdk-pixbuf\queryloaders.c
+gdk-pixbuf\test-gdk-pixbuf.c
+gdk-pixbuf\pixops\timescale.c
+tests\
+thumbnailer\
 
 [REFERENCES]
-cairo
-croco
-harfbuzz
 glib
 jpeg-turbo
-pango
 png
 tiff
-xml
-
-[MAGICK_BASECONFIG_DEFINE]
-/*
-  Define to use the RSVG library
-*/
-#define MAGICKCORE_RSVG_DELEGATE
