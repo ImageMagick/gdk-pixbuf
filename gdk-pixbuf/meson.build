@@ -1,480 +1,449 @@
-project('gdk-pixbuf', 'c',
-  version: '2.43.5',
-  license: 'LGPL-2.1-or-later',
-  default_options: [
-    'buildtype=debugoptimized',
-    'warning_level=1',
-    'c_std=gnu99',
-  ],
-  meson_version: '>= 1.5',
-)
+subdir('pixops')
 
-add_project_arguments([ '-D_POSIX_C_SOURCE=200809L', '-D_DEFAULT_SOURCE', '-D_XOPEN_SOURCE=700' ], language: 'c')
+# Loaders
+#  - sources: additional source files
+#  - c_args: additional C compiler arguments
+#  - enabled: condition for building
 
-cc = meson.get_compiler('c')
-host_system = host_machine.system()
+loaders = {
+  'png': {
+    'sources': [ 'io-png.c' ],
+    'enabled': enabled_loaders.contains('png'),
+  },
+  'bmp': {
+    'sources': [ 'io-bmp.c' ],
+    'enabled': enabled_loaders.contains('bmp') and not native_windows_loaders,
+  },
+  'gif': {
+    'sources': [ 'io-gif.c', 'io-gif-animation.c', 'lzw.c' ],
+    'enabled': enabled_loaders.contains('gif') and not native_windows_loaders,
+  },
+  'ico': {
+    'sources': [ 'io-ico.c' ],
+    'enabled': enabled_loaders.contains('ico') and not native_windows_loaders,
+  },
+  'ani': {
+    'sources': [ 'io-ani.c', 'io-ani-animation.c' ],
+    'enabled': enabled_loaders.contains('ani'),
+  },
+  'jpeg': {
+    'sources': [ 'io-jpeg.c' ],
+    'enabled': enabled_loaders.contains('jpeg'),
+  },
+  'pnm': {
+    'sources': [ 'io-pnm.c' ],
+    'enabled': enabled_loaders.contains('pnm'),
+  },
+  'tiff': {
+    'sources': [ 'io-tiff.c' ],
+    'enabled': enabled_loaders.contains('tiff'),
+  },
+  'xpm': {
+    'sources': [ 'io-xpm.c' ],
+    'enabled': enabled_loaders.contains('xpm'),
+  },
+  'xbm': {
+    'sources': [ 'io-xbm.c' ],
+    'enabled': enabled_loaders.contains('xbm'),
+  },
+  'tga': {
+    'sources': [ 'io-tga.c', 'gdk-pixbuf-buffer-queue.c' ],
+    'enabled': enabled_loaders.contains('tga'),
+  },
+  'icns': {
+    'sources': [ 'io-icns.c' ],
+    'enabled': enabled_loaders.contains('icns'),
+  },
+  'qtif': {
+    'sources': [ 'io-qtif.c' ],
+    'enabled': enabled_loaders.contains('qtif'),
+  },
+}
 
-# Versioning
-gdk_pixbuf_version = meson.project_version()
-version_arr = gdk_pixbuf_version.split('.')
-gdk_pixbuf_version_major = version_arr[0].to_int()
-gdk_pixbuf_version_minor = version_arr[1].to_int()
-gdk_pixbuf_version_micro = version_arr[2].to_int()
+gdk_pixbuf_inc = include_directories('.')
 
-gdk_pixbuf_api_version = '2.0'
-gdk_pixbuf_binary_version = '2.10.0'
-
-gdk_pixbuf_api_name = '@0@-@1@'.format(meson.project_name(), gdk_pixbuf_api_version)
-
-if gdk_pixbuf_version_minor.is_odd()
-  gdk_pixbuf_interface_age = 0
-else
-  gdk_pixbuf_interface_age = gdk_pixbuf_version_micro
-endif
-
-gdk_pixbuf_binary_age = 100 * gdk_pixbuf_version_minor + gdk_pixbuf_version_micro
-
-# maintaining compatibility with the previous libtool versioning
-# current = binary - interface
-# revision = interface
-soversion = 0
-current = gdk_pixbuf_binary_age - gdk_pixbuf_interface_age
-revision = gdk_pixbuf_interface_age
-libversion = '@0@.@1@.@2@'.format(soversion, current, revision)
-age = gdk_pixbuf_binary_age - gdk_pixbuf_interface_age
-current_minus_age = current - age
-darwin_versions = ['@0@'.format(current + 1), '@0@.@1@'.format(current + 1, gdk_pixbuf_interface_age)]
-
-# Paths
-gdk_pixbuf_prefix = get_option('prefix')
-gdk_pixbuf_libdir = gdk_pixbuf_prefix / get_option('libdir')
-gdk_pixbuf_bindir = gdk_pixbuf_prefix / get_option('bindir')
-gdk_pixbuf_includedir = gdk_pixbuf_prefix / get_option('includedir')
-gdk_pixbuf_datadir = gdk_pixbuf_prefix / get_option('datadir')
-gdk_pixbuf_mandir = gdk_pixbuf_prefix / get_option('mandir')
-gdk_pixbuf_localedir = gdk_pixbuf_prefix / get_option('localedir')
-gdk_pixbuf_libexecdir = gdk_pixbuf_prefix / get_option('libexecdir')
-gdk_pixbuf_loaderdir = gdk_pixbuf_libdir / 'gdk-pixbuf-@0@/@1@/loaders'.format(gdk_pixbuf_api_version, gdk_pixbuf_binary_version)
-gdk_pixbuf_docsdir = gdk_pixbuf_datadir / 'doc'
-
-# Dependencies
-glib_req_version = '>= 2.56.0'
-glib_dep = dependency('glib-2.0', version: glib_req_version,
-                      fallback : ['glib', 'libglib_dep'])
-gobject_dep = dependency('gobject-2.0', version: glib_req_version,
-                         fallback : ['glib', 'libgobject_dep'])
-gmodule_dep = dependency('gmodule-no-export-2.0', version: glib_req_version,
-                         fallback : ['glib', 'libgmodule_dep'])
-gio_dep = dependency('gio-2.0', version: glib_req_version,
-                     fallback : ['glib', 'libgio_dep'])
-
-# Configurations
-gdk_pixbuf_conf = configuration_data()
-
-check_headers = [
-  'unistd.h',
-  'sys/resource.h',
-  'sys/time.h'
+gdk_pixbuf_cflags = [
+  '-DG_LOG_STRUCTURED=1',
+  '-DG_LOG_DOMAIN="GdkPixbuf"',
+  '-DGDK_PIXBUF_COMPILATION',
+  '-DGDK_PIXBUF_PREFIX="@0@"'.format(gdk_pixbuf_prefix),
+  '-DGDK_PIXBUF_LOCALEDIR="@0@"'.format(gdk_pixbuf_localedir),
+  '-DGDK_PIXBUF_LIBDIR="@0@"'.format(gdk_pixbuf_libdir),
+  '-DGDK_PIXBUF_BINARY_VERSION="@0@"'.format(gdk_pixbuf_binary_version),
+  '-DGDK_PIXBUF_ENABLE_BACKEND',
+  '-DPIXBUF_LIBDIR="@0@"'.format(gdk_pixbuf_loaderdir),
+  '-DBUILT_MODULES_DIR="@0@"'.format(meson.current_build_dir()),
 ]
 
-foreach h: check_headers
-  if cc.has_header(h)
-    gdk_pixbuf_conf.set('HAVE_' + h.underscorify().to_upper(), 1)
+gdk_pixbuf_api_path = join_paths(gdk_pixbuf_api_name, 'gdk-pixbuf')
+
+gdkpixbuf_features_conf = configuration_data()
+gdkpixbuf_features_conf.set('GDK_PIXBUF_MAJOR', gdk_pixbuf_version_major)
+gdkpixbuf_features_conf.set('GDK_PIXBUF_MINOR', gdk_pixbuf_version_minor)
+gdkpixbuf_features_conf.set('GDK_PIXBUF_MICRO', gdk_pixbuf_version_micro)
+gdkpixbuf_features_conf.set('GDK_PIXBUF_VERSION', meson.project_version())
+gdkpixbuf_features_conf.set('GDK_PIXBUF_API_VERSION', gdk_pixbuf_api_version)
+gdkpixbuf_features_conf.set('LT_CURRENT_MINUS_AGE', current_minus_age)
+
+gdk_pixbuf_features_h = configure_file(input: 'gdk-pixbuf-features.h.in',
+                                       output: 'gdk-pixbuf-features.h',
+                                       configuration: gdkpixbuf_features_conf,
+                                       install_dir: join_paths(gdk_pixbuf_includedir, gdk_pixbuf_api_path))
+
+gdkpixbuf_headers = [
+  'gdk-pixbuf.h',
+  'gdk-pixbuf-animation.h',
+  'gdk-pixbuf-core.h',
+  'gdk-pixbuf-io.h',
+  'gdk-pixbuf-loader.h',
+  'gdk-pixbuf-macros.h',
+  'gdk-pixbuf-simple-anim.h',
+  'gdk-pixbuf-transform.h',
+]
+
+install_headers(gdkpixbuf_headers + [ 'gdk-pixdata.h' ], subdir: gdk_pixbuf_api_path)
+
+gdkpixbuf_sources = [
+  'gdk-pixbuf.c',
+  'gdk-pixbuf-animation.c',
+  'gdk-pixbuf-data.c',
+  'gdk-pixbuf-io.c',
+  'gdk-pixbuf-loader.c',
+  'gdk-pixbuf-scale.c',
+  'gdk-pixbuf-simple-anim.c',
+  'gdk-pixbuf-scaled-anim.c',
+  'gdk-pixbuf-util.c',
+]
+
+gdkpixdata_sources = [
+  'gdk-pixdata.c',
+]
+
+gdkpixbuf_marshals = gnome.genmarshal('gdk-pixbuf-marshal',
+                                      sources: 'gdk-pixbuf-marshal.list',
+                                      prefix: '_gdk_pixbuf_marshal',
+                                      install_header: true,
+                                      install_dir: join_paths(gdk_pixbuf_includedir, gdk_pixbuf_api_path))
+
+gdkpixbuf_enums = gnome.mkenums('gdk-pixbuf-enum-types',
+                                sources: gdkpixbuf_headers,
+                                c_template: 'gdk-pixbuf-enum-types.c.template',
+                                h_template: 'gdk-pixbuf-enum-types.h.template',
+                                install_header: true,
+                                install_dir: join_paths(gdk_pixbuf_includedir, gdk_pixbuf_api_path))
+gdkpixbuf_enum_h = gdkpixbuf_enums[1]
+
+if host_system == 'windows'
+  gdk_pixbuf_win_rc = configure_file(
+    input: 'gdk_pixbuf.rc.in',
+    output: 'gdk_pixbuf.rc',
+    configuration: gdkpixbuf_features_conf,
+  )
+  gdk_pixbuf_win_res = import('windows').compile_resources(gdk_pixbuf_win_rc)
+  gdkpixbuf_sources += gdk_pixbuf_win_res
+endif
+
+# Check if we need to build loaders as built-in functionality
+included_loaders_cflags = []
+included_loaders_deps = []
+
+foreach name, loader: loaders
+  sources = loader.get('sources', [])
+  cond = loader.get('enabled', true)
+  cflags = loader.get('c_args', [])
+
+  if cond and (builtin_loaders.contains(name) or builtin_all_loaders)
+    cflag_for_included_loader = ['-DINCLUDE_@0@'.format(name)]
+    included_loaders_cflags += cflag_for_included_loader
+
+    mod = static_library('staticpixbufloader-@0@'.format(name),
+                         sources,
+                         gdkpixbuf_enum_h,
+                         dependencies: loaders_deps + gdk_pixbuf_deps,
+                         include_directories: [ root_inc, gdk_pixbuf_inc ],
+                         c_args: common_cflags + gdk_pixbuf_cflags + cflags + cflag_for_included_loader)
+
+    included_loaders_deps += declare_dependency(link_with: mod)
   endif
 endforeach
 
-# Look for the math library first, since we use it to test for round() and lrint()
-mathlib_dep = cc.find_library('m', required: false)
+# List of formats supported by the native Windows components-based loader(s)
+windows_native_loader_formats = [ 'bmp', 'emf', 'gif', 'ico', 'jpeg', 'tiff', 'wmf' ]
+windows_base_loader_sources = [ 'io-gdip-utils.c', 'io-gdip-animation.c' ]
 
-# XXX: Remove the checks for round() and lrint() once GDK-Pixbuf is declared C99
-if cc.has_function('round', dependencies: mathlib_dep)
-  gdk_pixbuf_conf.set('HAVE_ROUND', 1)
+# Build the loaders using native Windows components as static modules, if requested
+if native_windows_loaders
+  if builtin_loaders.contains('windows') or builtin_all_loaders
+    cflag_for_included_loader = ['-DINCLUDE_gdiplus']
+    included_loaders_cflags += cflag_for_included_loader
+    win_loader_sources = windows_base_loader_sources
+    foreach loader: windows_native_loader_formats
+      win_loader_sources += 'io-gdip-@0@.c'.format(loader)
+    endforeach
+
+    mod = static_library('staticpixbufloader-gdiplus',
+                         win_loader_sources,
+                         gdkpixbuf_enum_h,
+                         dependencies: loaders_deps + gdk_pixbuf_deps,
+                         include_directories: [ root_inc, gdk_pixbuf_inc ],
+                         c_args: common_cflags + gdk_pixbuf_cflags + cflag_for_included_loader)
+
+    included_loaders_deps += declare_dependency(link_with: mod)
+  endif
 endif
 
-if cc.has_function('lrint', dependencies: mathlib_dep)
-  gdk_pixbuf_conf.set('HAVE_LRINT', 1)
+if enabled_loaders.contains('android')
+  if not builtin_loaders.contains('all')
+    builtin_loaders += 'android' # always builtin, for the summary
+  endif
+  included_loaders_cflags += ['-DINCLUDE_android']
+  android_loader_formats = [ 'jpeg', 'png', 'gif', 'webp', 'bmp', 'ico', 'wbmp', 'heif' ]
+  android_base_loader_sources = [ 'io-android-utils.c' ]
+  android_loader_sources = android_base_loader_sources
+  foreach loader: android_loader_formats
+    android_loader_sources += 'io-android-@0@.c'.format(loader)
+  endforeach
+
+  mod = static_library('staticpixbufloader-android',
+                       android_loader_sources,
+                       gdkpixbuf_enum_h,
+                       dependencies: loaders_deps + gdk_pixbuf_deps,
+                       include_directories: [ root_inc, gdk_pixbuf_inc ],
+                       c_args: common_cflags + gdk_pixbuf_cflags)
+
+  included_loaders_deps += declare_dependency(link_with: mod)
 endif
 
-if cc.has_function('setrlimit', prefix: '#include <sys/time.h>\n#include <sys/resource.h>')
-  gdk_pixbuf_conf.set('HAVE_SETRLIMIT', 1)
+if enabled_loaders.contains('glycin')
+  # List of formats supported by the glycin-based loader(s)
+  glycin_loader_formats = [
+    'avif',
+    'bmp',
+    'dds',
+    'gif',
+    'heic',
+    'ico',
+    'jpeg',
+    'jxl',
+    'openexr',
+    'png',
+    'pnm',
+    'qoi',
+    'raw',
+    'svg',
+    'tga',
+    'tiff',
+    'webp'
+  ]
+  glycin_base_loader_sources = [ 'io-glycin-utils.c' ]
+
+  # Build the glycin loaders as static modules, if requested
+  if builtin_loaders.contains('glycin') or builtin_all_loaders
+    cflag_for_included_loader = ['-DINCLUDE_glycin']
+    included_loaders_cflags += cflag_for_included_loader
+    glycin_loader_sources = glycin_base_loader_sources
+    foreach loader: glycin_loader_formats
+      glycin_loader_sources += 'io-glycin-@0@.c'.format(loader)
+    endforeach
+
+    mod = static_library('staticpixbufloader-glycin',
+                         glycin_loader_sources,
+                         gdkpixbuf_enum_h,
+                         dependencies: loaders_deps + gdk_pixbuf_deps,
+                         include_directories: [ root_inc, gdk_pixbuf_inc ],
+                         c_args: common_cflags + gdk_pixbuf_cflags + cflag_for_included_loader)
+
+    included_loaders_deps += declare_dependency(link_with: mod)
+  endif
 endif
 
-if cc.has_function('readlink', prefix: '#include <unistd.h>')
-  gdk_pixbuf_conf.set('HAVE_READLINK', 1)
-endif
+# The main gdk-pixbuf shared library
+gdkpixbuf = library('gdk_pixbuf-2.0',
+                    sources: [
+                      gdkpixbuf_sources,
+                      pixops_sources,
+                      gdkpixbuf_enums,
+                      gdkpixbuf_marshals,
+                      gdkpixdata_sources,
+                    ],
+                    soversion: soversion,
+                    version: libversion,
+		    darwin_versions: darwin_versions,
+                    c_args: common_cflags + gdk_pixbuf_cflags + included_loaders_cflags,
+                    link_args: common_ldflags,
+                    include_directories: [
+                      root_inc,
+                      include_directories('pixops'),
+                    ],
+                    dependencies: [
+                      gdk_pixbuf_deps,
+                      included_loaders_deps,
+                    ],
+                    install: true)
 
-# We use links() because sigsetjmp() is often a macro hidden behind other macros
-gdk_pixbuf_conf.set('HAVE_SIGSETJMP',
-  cc.links('''#define _POSIX_SOURCE
-              #include <setjmp.h>
-              int main (void) {
-                sigjmp_buf env;
-                sigsetjmp (env, 0);
-                return 0;
-              }''', name: 'sigsetjmp'),
-)
+gir = find_program('g-ir-scanner', required : get_option('introspection'))
+build_gir = gir.found() and (not meson.is_cross_build() or get_option('introspection').enabled())
 
-# Common compiler and linker flags
-common_cflags = []
-common_ldflags = []
-
-if cc.get_id() == 'msvc'
-  # For Visual Studio, just force-include msvc_reommended_pragmas.h
-  # so that we silence unwanted noise and track potential issues
-  test_cflags = [ '-FImsvc_recommended_pragmas.h', '-utf-8' ]
-  add_project_arguments(cc.get_supported_arguments(test_cflags), language: 'c')
-elif cc.get_id() == 'gcc' or cc.get_id() == 'clang'
-  test_cflags = [
-    '-Wpointer-arith',
-    '-Wformat=2',
-    '-Wstrict-prototypes',
-    '-Wnested-externs',
-    '-Wold-style-definition',
-    '-Wdeclaration-after-statement',
-    '-Wunused',
-    '-Wcast-align',
-    '-Wmissing-noreturn',
-    '-Wmissing-format-attribute',
-    '-Wlogical-op',
-    '-fno-strict-aliasing',
-    '-Wno-int-conversion',
-    '-Wno-uninitialized',
-    '-Wno-discarded-qualifiers',
-    '-Werror=undef',
-    '-Werror=implicit',
-    '-Werror=nonnull',
-    '-Werror=init-self',
-    '-Werror=main',
-    '-Werror=missing-braces',
-    '-Werror=sequence-point',
-    '-Werror=return-type',
-    '-Werror=trigraphs',
-    '-Werror=array-bounds',
-    '-Werror=write-strings',
-    '-Werror=address',
-    '-Werror=int-to-pointer-cast',
-    '-Werror=pointer-to-int-cast',
-    '-Werror=empty-body',
+if build_gir
+  gir_args = [
+    '--quiet',
+    '-DGDK_PIXBUF_COMPILATION',
+    '-DGDK_PIXBUF_ENABLE_BACKEND',
   ]
 
-  # Ensure we have the correct bit packing on Windows
-  if host_system == 'windows'
-    test_cflags += '-mms-bitfields'
-  endif
+  gdkpixbuf_gir = gnome.generate_gir(
+    gdkpixbuf,
+    sources: [
+      gdkpixbuf_sources,
+      gdkpixbuf_headers,
+      gdkpixbuf_enums,
+      gdkpixdata_sources,
+      gdk_pixbuf_features_h,
+    ],
+    namespace: 'GdkPixbuf',
+    nsversion: gdk_pixbuf_api_version,
+    identifier_prefix: 'Gdk',
+    symbol_prefix: 'gdk',
+    export_packages: 'gdk-pixbuf-2.0',
+    includes: [ 'GModule-2.0', 'Gio-2.0', ],
+    header: 'gdk-pixbuf/gdk-pixbuf.h',
+    install: true,
+    extra_args: gir_args,
+  )
+
+  gdkpixdata_gir = gnome.generate_gir(
+    gdkpixbuf,
+    sources: gdkpixdata_sources + ['gdk-pixdata.h'],
+    namespace: 'GdkPixdata',
+    nsversion: gdk_pixbuf_api_version,
+    identifier_prefix: 'Gdk',
+    symbol_prefix: 'gdk',
+    export_packages: 'gdk-pixbuf-2.0',
+    includes: [ gdkpixbuf_gir[0] ],
+    header: 'gdk-pixbuf/gdk-pixdata.h',
+    install: true,
+    extra_args: gir_args,
+  )
+
+  built_girs = [ gdkpixbuf_gir, gdkpixdata_gir ]
 else
-  test_cflags = []
+  built_girs = []
 endif
 
-# Symbol visibility
-if get_option('default_library') != 'static'
-  if host_system == 'windows'
-    gdk_pixbuf_conf.set('DLL_EXPORT', true)
-    gdk_pixbuf_conf.set('_GDK_PIXBUF_EXTERN', '__declspec(dllexport) extern')
-    if cc.get_id() != 'msvc'
-      test_cflags += ['-fvisibility=hidden']
-    endif
-  else
-    gdk_pixbuf_conf.set('_GDK_PIXBUF_EXTERN', '__attribute__((visibility("default"))) extern')
-    test_cflags += ['-fvisibility=hidden']
+gdkpixbuf_dep = declare_dependency(
+  link_with: gdkpixbuf,
+  include_directories: root_inc,
+  dependencies: [ gdk_pixbuf_deps, included_loaders_deps ],
+  sources: [ gdkpixbuf_enum_h, built_girs ],
+)
+meson.override_dependency('gdk-pixbuf-2.0', gdkpixbuf_dep)
+
+# Now check if we are building loaders as installed shared modules
+# We do this here because shared modules depend on libgdk-pixbuf
+dynamic_loaders = []
+dynamic_loaders_dep = []
+
+foreach name, loader: loaders
+  sources = loader.get('sources', [])
+  cond = loader.get('enabled', true)
+  cflags = loader.get('c_args', [])
+  name_suffix = []
+
+  # FIXME: workaround for https://gitlab.gnome.org/GNOME/glib/issues/1413
+  if host_system == 'darwin'
+    name_suffix = 'so'
+  endif
+
+  if cond and not (builtin_loaders.contains(name) or builtin_all_loaders)
+    mod = shared_module('pixbufloader-@0@'.format(name),
+                        sources,
+                        gdkpixbuf_enum_h,
+                        dependencies: loaders_deps + gdk_pixbuf_deps + [ gdkpixbuf_dep ],
+                        include_directories: [ root_inc, gdk_pixbuf_inc ],
+                        c_args: common_cflags + gdk_pixbuf_cflags + cflags,
+                        name_suffix: name_suffix,
+                        install: true,
+                        install_dir: gdk_pixbuf_loaderdir)
+
+    # We need the path to build loaders.cache for tests
+    dynamic_loaders += mod.full_path()
+    dynamic_loaders_dep += mod
+  endif
+endforeach
+
+# Build the loaders using native Windows components as dynamic modules, if requested
+if native_windows_loaders
+  if not (builtin_loaders.contains('windows') or builtin_all_loaders)
+    foreach loader: windows_native_loader_formats
+      loader_sources = windows_base_loader_sources + [ 'io-gdip-@0@.c'.format(loader) ]
+
+      mod = shared_module('pixbufloader-gdip-@0@'.format(loader),
+                          loader_sources,
+                          gdkpixbuf_enum_h,
+                          dependencies: loaders_deps + gdk_pixbuf_deps + [ gdkpixbuf_dep ],
+                          include_directories: [ root_inc, gdk_pixbuf_inc ],
+                          c_args: common_cflags + gdk_pixbuf_cflags + cflags,
+                          install: true,
+                          install_dir: gdk_pixbuf_loaderdir)
+      dynamic_loaders += mod.full_path()
+      dynamic_loaders_dep = mod
+    endforeach
   endif
 endif
 
-common_cflags += cc.get_supported_arguments(test_cflags)
-
-if host_machine.system() == 'linux'
-  # Additional linker flags
-  test_ldflags = ['-Wl,-Bsymbolic', '-Wl,-z,relro', '-Wl,-z,now']
-  common_ldflags += cc.get_supported_link_arguments(test_ldflags)
-  gdk_pixbuf_conf.set('OS_LINUX', 1)
-endif
-
-if host_machine.system() == 'darwin'
-  gdk_pixbuf_conf.set('OS_DARWIN', 1)
-endif
-
-android_opt = get_option('android').disable_auto_if(host_system != 'android')
-jnigraphics_dep = cc.find_library('jnigraphics', required: android_opt)
-
-# On non-Windows/macOS/android systems we always required shared-mime-info and GIO
-# shared_mime_dep = []
-shared_mime_dep = []
-use_gio_mime = false
-
-# Check if medialib is available
-use_medialib = false
-medialib_dep = cc.find_library('mlib', required: false)
-if medialib_dep.found()
-  if cc.has_function('mlib_ImageSetStruct', dependencies: medialib_dep)
-    gdk_pixbuf_conf.set('USE_MEDIALIB', 1)
-
-    if cc.has_function('mlib_VideoColorRGBint_to_BGRAint', dependencies: medialib_dep)
-      gdk_pixbuf_conf.set('USE_MEDIALIB25', 1)
-    endif
-
-    use_medialib = true
-  else
-    medialib_dep = []
-  endif
-endif
-
-gdk_pixbuf_deps = [
-  mathlib_dep,
-  glib_dep,
-  gobject_dep,
-  gmodule_dep,
-  gio_dep,
-  shared_mime_dep,
-  medialib_dep,
+gdkpixbuf_bin = [
+  [ 'gdk-pixbuf-query-loaders', [ 'queryloaders.c' ] ],
 ]
 
-# Check if we can build shared modules
-if gmodule_dep.type_name() == 'pkgconfig'
-  build_modules = gmodule_dep.get_variable(pkgconfig: 'gmodule_supported') == 'true'
-else
-  build_modules = subproject('glib').get_variable('g_module_impl') != '0'
-endif
-gdk_pixbuf_conf.set('USE_GMODULE', build_modules)
+foreach bin: gdkpixbuf_bin
+  bin_name = bin[0]
+  bin_source = bin.get(1, bin_name + '.c')
 
-# Loader dependencies
-enabled_loaders = []
-loaders_deps = []
+  bin = executable(bin_name, bin_source,
+                   gdkpixbuf_enum_h,
+                   dependencies: gdkpixbuf_dep,
+                   include_directories: [ root_inc, gdk_pixbuf_inc ],
+                   c_args: common_cflags + gdk_pixbuf_cflags,
+                   install: true)
+  meson.override_find_program(bin_name, bin)
 
-if jnigraphics_dep.found()
-  loaders_deps += jnigraphics_dep
-  enabled_loaders += 'android'
-endif
-
-glycin_opt = get_option('glycin').enable_auto_if(host_machine.system() == 'linux')
-if glycin_opt.disabled()
-  glycin_dep = disabler()
-else
-  glycin_dep = dependency('glycin-2', version: '>= 2.0.beta.3', required: glycin_opt)
-endif
-
-# Check which loaders should be built into gdk-pixbuf
-builtin_loaders = get_option('builtin_loaders')
-if builtin_loaders.contains('default')
-  if glycin_dep.found()
-    builtin_loaders = ['glycin']
-  elif enabled_loaders.contains('android')
-    # android loaders are always builtin
-  else
-    builtin_loaders = ['png','jpeg']
-  endif
-endif
-
-# If 'all' is specified for builtin_loaders, build all
-# buildable loaders into gdk-pixbuf
-builtin_all_loaders = false
-if builtin_loaders.contains('all')
-  builtin_all_loaders = true
-elif builtin_loaders.contains('none')
-  builtin_loaders = []
-endif
-
-is_msvc_like = cc.get_argument_syntax() == 'msvc'
-
-png_opt = get_option('png').disable_auto_if(glycin_dep.found() or enabled_loaders.contains('android'))
-
-if not png_opt.disabled()
-  png_dep = dependency(is_msvc_like ? 'png' : 'libpng', required: false)
-
-  # Finally, look for the dependency in a fallback subproject if allowed by
-  # the --wrap-mode option. We don't directly call subproject() here because
-  # that will bypass --wrap-mode and cause issues for distro packagers.
-  # See: https://mesonbuild.com/Reference-manual.html#dependency
-  if not png_dep.found()
-    png_dep = dependency('libpng',
-      fallback: ['libpng', 'libpng_dep'],
-      required: png_opt,
-    )
-  endif
-
-  if png_dep.found()
-    enabled_loaders += 'png'
-    loaders_deps += png_dep
-  endif
-endif
-
-if glycin_dep.found()
-  enabled_loaders += 'glycin'
-  loaders_deps += [ glycin_dep ]
-endif
-
-gif_opt = get_option('gif').disable_auto_if(glycin_dep.found() or enabled_loaders.contains('android'))
-if not gif_opt.disabled()
-  enabled_loaders += 'gif'
-endif
-
-others_opt = get_option('others')
-if not others_opt.disabled()
-  # Keep sorted alphabetically
-  enabled_loaders += [
-    'ani',
-    'bmp',
-    'icns',
-    'ico',
-    'pnm',
-    'qtif',
-    'tga',
-    'xbm',
-    'xpm',
-  ]
-endif
-
-# On Windows, check whether we are building the native Windows loaders
-# (it is an "all-or-nothing" option for BMP, EMF, GIF, ICO, JPEG, TIFF and WMF)
-# Note that we currently do not use the native Windows loaders to handle PNG and
-# JPEG2000 images
-if host_system == 'windows'
-  native_windows_loaders = get_option('native_windows_loaders')
-else
-  native_windows_loaders = false
-endif
-
-if native_windows_loaders
-  loaders_deps += cc.find_library('gdiplus')
-  loaders_deps += cc.find_library('ole32')
-  enabled_loaders += 'gdiplus'
-endif
-
-# Don't check and build the jpeg loader if native_windows_loaders is true
-jpeg_opt = get_option('jpeg').disable_auto_if(glycin_dep.found() or enabled_loaders.contains('android'))
-if not jpeg_opt.disabled() and not native_windows_loaders
-  jpeg_dep = dependency(is_msvc_like ? 'jpeg' : 'libjpeg', required: false)
-
-  # Finally, look for the dependency in a fallback
-  if not jpeg_dep.found()
-    jpeg_dep = dependency('libjpeg',
-      fallback: ['libjpeg-turbo', 'jpeg_dep'],
-      required: jpeg_opt,
-    )
-  endif
-
-  if jpeg_dep.found()
-    enabled_loaders += 'jpeg'
-    loaders_deps += jpeg_dep
-
-    if jpeg_dep.type_name() == 'internal'
-      has_destroy_decompress = true
-      has_simple_progression = true
-    else
-      has_destroy_decompress = cc.has_function('jpeg_destroy_decompress', dependencies: jpeg_dep)
-      has_simple_progression = cc.has_function('jpeg_simple_progression', dependencies: jpeg_dep)
-    endif
-
-    if has_destroy_decompress and has_simple_progression
-      gdk_pixbuf_conf.set('HAVE_PROGRESSIVE_JPEG', has_simple_progression)
-    endif
-  endif
-endif
-
-# Don't check and build the tiff loader if native_windows_loaders is true
-tiff_opt = get_option('tiff').disable_auto_if(glycin_dep.found())
-if not tiff_opt.disabled() and not native_windows_loaders
-  # We currently don't have a fallback subproject, but this handles error
-  # reporting if tiff_opt is enabled.
-  tiff_dep = dependency(is_msvc_like ? 'tiff' : 'libtiff-4', required: tiff_opt)
-
-  if tiff_dep.found()
-    enabled_loaders += 'tiff'
-    loaders_deps += tiff_dep
-  endif
-endif
-
-# Determine whether we enable application bundle relocation support, and we use
-# this always on Windows
-if host_system == 'windows'
-  relocatable = (get_option('default_library') != 'static')
-else
-  relocatable = get_option('relocatable')
-endif
-
-if relocatable
-  add_project_arguments([ '-DGDK_PIXBUF_RELOCATABLE' ], language: 'c')
-endif
-
-gdk_pixbuf_conf.set_quoted('GETTEXT_PACKAGE', meson.project_name())
-
-configure_file(output: 'config.h', configuration: gdk_pixbuf_conf)
-add_project_arguments([ '-DHAVE_CONFIG_H=1' ], language: 'c')
-
-root_inc = include_directories('.')
-
-# Auxiliary scripts
-gen_resources = find_program('build-aux/gen-resources.py')
-gen_installed_test = find_program('build-aux/gen-installed-test.py')
-gen_thumbnailer = find_program('build-aux/gen-thumbnailer.py')
-
-# Needed by gen-resources.py
-#glib_compile_resources = find_program('glib-compile-resources')
-
-gnome = import('gnome')
-
-subdir('gdk-pixbuf')
-
-# i18n
-subdir('po')
+  # Used in tests
+  set_variable(bin_name.underscorify(), bin)
+endforeach
 
 if not meson.is_cross_build()
-  if get_option('tests')
-    subdir('tests')
-  endif
-  thumbnailer_opt = get_option('thumbnailer').disable_auto_if(glycin_dep.found())
-  if not thumbnailer_opt.disabled()
-    subdir('thumbnailer')
-  endif
+  # The 'loaders.cache' used for testing, so we don't accidentally
+  # load the installed cache; we always build it by default
+  loaders_cache = custom_target('loaders.cache',
+                                output: 'loaders.cache',
+                                capture: true,
+                                command: [
+                                  gdk_pixbuf_query_loaders,
+                                  dynamic_loaders,
+                                ],
+                                depends: dynamic_loaders_dep,
+                                build_by_default: true)
+  loaders_dep = declare_dependency(sources: [ loaders_cache ])
 else
-  thumbnailer_opt = disabler()
+  loaders_cache = []
+  loaders_dep = declare_dependency()
 endif
 
-# Documentation
-subdir('docs')
-
-if not meson.is_cross_build()
-  meson.add_install_script('build-aux/post-install.py',
-    gdk_pixbuf_bindir,
-    gdk_pixbuf_libdir,
-    gdk_pixbuf_binary_version,
-  )
-endif
-
-if not meson.is_subproject()
-  meson.add_dist_script('build-aux/dist.py')
-endif
-
-summary({
-    'prefix': gdk_pixbuf_prefix,
-    'libdir': gdk_pixbuf_libdir,
-    'datadir': gdk_pixbuf_datadir,
-    'libexecdir': gdk_pixbuf_libdir,
-    'docdir': gdk_pixbuf_docsdir,
-  },
-  section: 'Directories',
-)
-
-summary({
-    'Shared modules': build_modules,
-    'Enabled loaders': enabled_loaders,
-    'Builtin loaders': builtin_loaders,
-    'Thumbnailer': not thumbnailer_opt.disabled(),
-  },
-  section: 'Loaders',
-  bool_yn: true,
-)
-
-summary({
-    'Debugging': get_option('debug'),
-    'Optimization': get_option('optimization'),
-    'GIO MIME sniffing': use_gio_mime,
-    'MediaLib': use_medialib,
-    'Introspection': build_gir,
-    'Documentation': build_docs,
-    'Manual pages': get_option('man'),
-    'Relocatable': relocatable,
-    'Build tests': get_option('tests'),
-    'Installed tests': get_option('installed_tests'),
-  },
-  section: 'Build',
-  bool_yn: true,
+pkgconfig = import('pkgconfig')
+pkgconfig.generate(
+  gdkpixbuf,
+  name: 'GdkPixbuf',
+  description: 'Image loading and scaling',
+  variables: [
+    'gdk_pixbuf_binary_version=@0@'.format(gdk_pixbuf_binary_version),
+    'gdk_pixbuf_binarydir=${libdir}/@0@/@1@'.format(gdk_pixbuf_api_name, gdk_pixbuf_binary_version),
+    'gdk_pixbuf_moduledir=${gdk_pixbuf_binarydir}/loaders',
+    'gdk_pixbuf_cache_file=${gdk_pixbuf_binarydir}/loaders.cache',
+    'gdk_pixbuf_csource=${bindir}/gdk-pixbuf-csource',
+    'gdk_pixbuf_pixdata=${bindir}/gdk-pixbuf-pixdata',
+    'gdk_pixbuf_query_loaders=${bindir}/gdk-pixbuf-query-loaders',
+  ],
+  requires: 'gobject-2.0',
+  subdirs: gdk_pixbuf_api_name,
+  filebase: gdk_pixbuf_api_name,
 )
