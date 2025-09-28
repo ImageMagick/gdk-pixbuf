@@ -1,5 +1,23 @@
 [DYNAMIC_LIBRARY]
 
+[VERSION]
+2.43.5
+
+[RELEASE_DATE]
+2025-08-26
+
+[PRODUCT_NAME]
+gdk-pixbuf
+
+[COMPANY_NAME]
+GNOME
+
+[URL]
+https://gitlab.gnome.org/GNOME/gdk-pixbuf
+
+[COPYRIGHT]
+Copyright (C) 1999 The Free Software Foundation
+
 [LICENSE_FILE]
 COPYING
 
