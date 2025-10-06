@@ -34,13 +34,23 @@
  * `gdk_pixbuf_version`.
  */
 
-#define GDK_PIXBUF_MAJOR (@GDK_PIXBUF_MAJOR@)
-#define GDK_PIXBUF_MINOR (@GDK_PIXBUF_MINOR@)
-#define GDK_PIXBUF_MICRO (@GDK_PIXBUF_MICRO@)
-#define GDK_PIXBUF_VERSION "@GDK_PIXBUF_VERSION@"
+#define GDK_PIXBUF_MAJOR (2)
+#define GDK_PIXBUF_MINOR (44)
+#define GDK_PIXBUF_MICRO (3)
+#define GDK_PIXBUF_VERSION "2.44.3"
 
 #ifndef _GDK_PIXBUF_EXTERN
-#define _GDK_PIXBUF_EXTERN extern
+  #if defined(_MSC_VER)
+    #if defined(_LIB)
+      #define _GDK_PIXBUF_EXTERN extern
+    #elif defined(PIXBUF_COMPILATION)
+      #define _GDK_PIXBUF_EXTERN extern __declspec(dllexport)
+    #else
+      #define _GDK_PIXBUF_EXTERN __declspec(dllimport)
+    #endif
+  #else
+    #define _GDK_PIXBUF_EXTERN extern
+  #endif
 #endif
 
 /* We prefix variable declarations so they can
