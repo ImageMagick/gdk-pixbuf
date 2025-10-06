@@ -1,3 +1,32 @@
+2.44.3
+===
+
+- glycin: Fix an off-by-one-error in option handling
+- glycin: Handle outdated uses of the prepare callback
+- glycin: Consolidate image and animation loading
+- glycin: Handle animations better, using new glycin API
+- build: Require glycin 2.0.1
+
+2.44.2
+===
+
+- glycin: Ignore unknowns keys when saving [!239]
+- Translation updates
+
+2.44.1
+===
+
+- Re-enable animation tests [!236]
+- Fix leak in load_animation_with_glycin [!237]
+
+2.44.0
+===
+
+- build: Fix cross-building
+- build: Don't build documentation by default
+- glycin: Implement animation
+- Translation updates
+
 2.43.5 (development)
 ===
 

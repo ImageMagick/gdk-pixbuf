@@ -50,7 +50,7 @@ filter_keys (char    **keys,
       if (g_str_has_prefix (keys[i], "tEXt::"))
         {
           filtered_keys[j] = keys[i] + strlen ("tEXt::");
-          filtered_values[j] = values[j];
+          filtered_values[j] = values[i];
           j++;
         }
       else if (strcmp (keys[i], "icc-profile") == 0)
@@ -91,14 +91,7 @@ filter_keys (char    **keys,
         }
       else
         {
-          g_set_error (error,
-                       GDK_PIXBUF_ERROR,
-                       GDK_PIXBUF_ERROR_BAD_OPTION,
-                       "Unhandled key while saving: %s", keys[i]);
-          g_free (icc_data);
-          g_free (filtered_keys);
-          g_free (filtered_values);
-          return FALSE;
+          g_warning ("Unrecognized parameter “%s” passed to the PNG saver", keys[i]);
         }
     }
 
