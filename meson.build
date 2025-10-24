@@ -1,5 +1,5 @@
 project('gdk-pixbuf', 'c',
-  version: '2.44.3',
+  version: '2.44.4',
   license: 'LGPL-2.1-or-later',
   default_options: [
     'buildtype=debugoptimized',
@@ -95,6 +95,11 @@ if cc.has_function('lrint', dependencies: mathlib_dep)
   gdk_pixbuf_conf.set('HAVE_LRINT', 1)
 endif
 
+intl_dep = cc.find_library('intl', required: false)
+if cc.has_function('bind_textdomain_codeset', prefix: '#include <libintl.h>', dependencies: intl_dep)
+  gdk_pixbuf_conf.set('HAVE_BIND_TEXTDOMAIN_CODESET', 1)
+endif
+
 if cc.has_function('setrlimit', prefix: '#include <sys/time.h>\n#include <sys/resource.h>')
   gdk_pixbuf_conf.set('HAVE_SETRLIMIT', 1)
 endif
@@ -155,6 +160,7 @@ elif cc.get_id() == 'gcc' or cc.get_id() == 'clang'
     '-Werror=int-to-pointer-cast',
     '-Werror=pointer-to-int-cast',
     '-Werror=empty-body',
+    '-Werror=tautological-unsigned-zero-compare',
   ]
 
   # Ensure we have the correct bit packing on Windows
@@ -199,6 +205,11 @@ jnigraphics_dep = cc.find_library('jnigraphics', required: android_opt)
 # shared_mime_dep = []
 shared_mime_dep = []
 use_gio_mime = false
+if get_option('gio_sniffing') and host_system not in ['windows', 'darwin', 'android']
+  shared_mime_dep += dependency('shared-mime-info')
+  gdk_pixbuf_conf.set('GDK_PIXBUF_USE_GIO_MIME', 1)
+  use_gio_mime = true
+endif
 
 # Check if medialib is available
 use_medialib = false
@@ -225,6 +236,7 @@ gdk_pixbuf_deps = [
   gio_dep,
   shared_mime_dep,
   medialib_dep,
+  intl_dep,
 ]
 
 # Check if we can build shared modules
@@ -405,6 +417,9 @@ root_inc = include_directories('.')
 gen_resources = find_program('build-aux/gen-resources.py')
 gen_installed_test = find_program('build-aux/gen-installed-test.py')
 gen_thumbnailer = find_program('build-aux/gen-thumbnailer.py')
+
+# Needed by gen-resources.py
+glib_compile_resources = find_program('glib-compile-resources')
 
 gnome = import('gnome')
 
