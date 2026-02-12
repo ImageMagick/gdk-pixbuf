@@ -233,7 +233,9 @@ if enabled_loaders.contains('glycin')
     'svg',
     'tga',
     'tiff',
-    'webp'
+    'webp',
+    'xbm',
+    'xpm',
   ]
   glycin_base_loader_sources = [ 'io-glycin-utils.c' ]
 
@@ -392,6 +394,8 @@ if native_windows_loaders
 endif
 
 gdkpixbuf_bin = [
+  [ 'gdk-pixbuf-csource' ],
+  [ 'gdk-pixbuf-pixdata' ],
   [ 'gdk-pixbuf-query-loaders', [ 'queryloaders.c' ] ],
 ]
 
