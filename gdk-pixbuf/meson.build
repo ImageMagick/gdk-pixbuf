@@ -394,6 +394,8 @@ if native_windows_loaders
 endif
 
 gdkpixbuf_bin = [
+  [ 'gdk-pixbuf-csource' ],
+  [ 'gdk-pixbuf-pixdata' ],
   [ 'gdk-pixbuf-query-loaders', [ 'queryloaders.c' ] ],
 ]
 
@@ -421,7 +423,7 @@ if not meson.is_cross_build()
                                 capture: true,
                                 command: [
                                   gdk_pixbuf_query_loaders,
-                                  dynamic_loaders,
+                                  dynamic_loaders.length() > 0 ? dynamic_loaders : '',
                                 ],
                                 depends: dynamic_loaders_dep,
                                 build_by_default: true)

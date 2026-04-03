@@ -1,5 +1,5 @@
 project('gdk-pixbuf', 'c',
-  version: '2.44.5',
+  version: '2.44.6',
   license: 'LGPL-2.1-or-later',
   default_options: [
     'buildtype=debugoptimized',
@@ -93,6 +93,11 @@ endif
 
 if cc.has_function('lrint', dependencies: mathlib_dep)
   gdk_pixbuf_conf.set('HAVE_LRINT', 1)
+endif
+
+intl_dep = cc.find_library('intl', required: false)
+if cc.has_function('bind_textdomain_codeset', prefix: '#include <libintl.h>', dependencies: intl_dep)
+  gdk_pixbuf_conf.set('HAVE_BIND_TEXTDOMAIN_CODESET', 1)
 endif
 
 if cc.has_function('setrlimit', prefix: '#include <sys/time.h>\n#include <sys/resource.h>')
@@ -200,6 +205,11 @@ jnigraphics_dep = cc.find_library('jnigraphics', required: android_opt)
 # shared_mime_dep = []
 shared_mime_dep = []
 use_gio_mime = false
+if get_option('gio_sniffing') and host_system not in ['windows', 'darwin', 'android']
+  shared_mime_dep += dependency('shared-mime-info')
+  gdk_pixbuf_conf.set('GDK_PIXBUF_USE_GIO_MIME', 1)
+  use_gio_mime = true
+endif
 
 # Check if medialib is available
 use_medialib = false
@@ -226,6 +236,7 @@ gdk_pixbuf_deps = [
   gio_dep,
   shared_mime_dep,
   medialib_dep,
+  intl_dep,
 ]
 
 # Check if we can build shared modules
@@ -323,6 +334,12 @@ if not others_opt.disabled()
   ]
 endif
 
+if not get_option('legacy_xpm').disabled()
+  enabled_loaders += [
+    'xpm',
+  ]
+endif
+
 # On Windows, check whether we are building the native Windows loaders
 # (it is an "all-or-nothing" option for BMP, EMF, GIF, ICO, JPEG, TIFF and WMF)
 # Note that we currently do not use the native Windows loaders to handle PNG and
@@ -406,6 +423,9 @@ root_inc = include_directories('.')
 gen_resources = find_program('build-aux/gen-resources.py')
 gen_installed_test = find_program('build-aux/gen-installed-test.py')
 gen_thumbnailer = find_program('build-aux/gen-thumbnailer.py')
+
+# Needed by gen-resources.py
+glib_compile_resources = find_program('glib-compile-resources')
 
 gnome = import('gnome')
 

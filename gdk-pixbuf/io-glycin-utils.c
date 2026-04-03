@@ -344,9 +344,10 @@ gdk_pixbuf_glycin_animation_iter_advance (GdkPixbufAnimationIter *iter,
               g_array_index (self->animation->decoded, GdkPixbufGlycinFrame, self->idx).is_last_frame = TRUE;
 
               g_error_free (error);
-              self->idx = 0;
+              if (self->idx == 0)
+                return FALSE;
 
-              return FALSE;
+              self->idx = 0;
             }
           else
             {
