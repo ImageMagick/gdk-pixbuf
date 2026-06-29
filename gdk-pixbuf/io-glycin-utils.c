@@ -65,7 +65,7 @@ g_file_from_file (FILE    *f,
   char filename[256] = { 0, };
   ssize_t s;
 
-  g_snprintf (proc_path, sizeof (proc_path), "/proc/%u/fd/%d", getpid (), fileno (f));
+  g_snprintf (proc_path, sizeof (proc_path), "/proc/self/fd/%d", fileno (f));
   s = readlink (proc_path, filename, sizeof (filename));
 
   if (s < 0)
@@ -800,21 +800,28 @@ glycin_image_save (const char         *mimetype,
 
   if (f)
     {
-      GFile *file = g_file_from_file (f, error);
+      size_t n_written;
 
-      if (!file)
-        res = FALSE;
+      while (length > 0)
+        {
+          n_written = fwrite (image_data, sizeof (gchar), length, f);
+          if (n_written <= 0)
+            break;
+          length -= n_written;
+          image_data += n_written;
+        }
+
+      if (length)
+        {
+          g_set_error_literal (error,
+                          GDK_PIXBUF_ERROR,
+                          GDK_PIXBUF_ERROR_FAILED,
+                          "Couldn't write to file");
+          res = FALSE;
+        }
       else
         {
-          res = g_file_replace_contents (file,
-                                         image_data, length,
-                                         NULL,
-                                         FALSE,
-                                         G_FILE_CREATE_NONE,
-                                         NULL,
-                                         NULL,
-                                         error);
-          g_object_unref (file);
+          res = TRUE;
         }
     }
   else
